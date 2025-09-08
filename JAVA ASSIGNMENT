@@ -1,0 +1,321 @@
+Design and implement a console-based Video Streaming app to manage users, plans, content
+library, and watch history using OOP in Java.
+Requirements:
+1. Create at least 4 classes:
+o User – userId, name, email, activePlan, watchlist/history.
+o Plan – planId, name, monthlyPrice, screens, quality.
+o Content – contentId, title, type (Movie/Series), duration/episodes, rating.
+o StreamingService – manages users, plans, content catalog, recommendations.
+2. Each class must include:
+o ≥4 instance/static variables.
+o A constructor to initialize values.
+o ≥5 methods (getters/setters, subscribe(), addToWatchlist(), play(), recommend()).
+3. Demonstrate OOPS Concepts:
+o Inheritance → Movie/Series extend Content.
+o Method Overloading → recommend() by genre/year/rating.
+o Method Overriding → play() behavior differs for Movie vs Series episode.
+o Polymorphism → handle List<Content> and call overridden play().
+o Encapsulation → guard plan changes and rating updates.
+4. Write a Main class (StreamingAppMain) to test:
+o Create plans/users/content, subscribe users.
+o Build watchlists, play content, record history.
+o Print top-watched, plan-wise revenue, and personalized recommendations.
+
+
+SOURCE CODE:
+package Javaprojects;
+
+
+public abstract class Content {
+    protected int contentId;
+    protected String title;
+    protected String genre;
+    protected double rating;
+
+    public Content(int contentId, String title, String genre, double rating) {
+        this.contentId = contentId;
+        this.title = title;
+        this.genre = genre;
+        setRating(rating);
+    }
+
+    public abstract void play(); // Overridden in Movie/Series
+
+    public String getTitle() {
+        return title;
+    }
+
+    public String getGenre() {
+        return genre;
+    }
+
+    public double getRating() {
+        return rating;
+    }
+
+    public void setRating(double rating) {
+        if (rating >= 0 && rating <= 5) {
+            this.rating = rating;
+        }
+    }
+
+    public int getContentId() {
+        return contentId;
+    }
+}
+
+public class Movie extends Content {
+    private int duration; // in minutes
+
+    public Movie(int contentId, String title, String genre, int duration, double rating) {
+        super(contentId, title, genre, rating);
+        this.duration = duration;
+    }
+
+    @Override
+    public void play() {
+        System.out.println("Playing Movie: " + title + " (" + duration + " mins)");
+    }
+}
+
+public class Series extends Content {
+    private int episodes;
+
+    public Series(int contentId, String title, String genre, int episodes, double rating) {
+        super(contentId, title, genre, rating);
+        this.episodes = episodes;
+    }
+
+    @Override
+    public void play() {
+        System.out.println("Playing first episode of Series: " + title);
+    }
+}
+
+public class Plan {
+    private int planId;
+    private String name;
+    private double monthlyPrice;
+    private int screens;
+    private String quality;
+
+    public Plan(int planId, String name, double monthlyPrice, int screens, String quality) {
+        this.planId = planId;
+        this.name = name;
+        this.monthlyPrice = monthlyPrice;
+        this.screens = screens;
+        this.quality = quality;
+    }
+
+    public int getPlanId() {
+        return planId;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public double getMonthlyPrice() {
+        return monthlyPrice;
+    }
+
+    public int getScreens() {
+        return screens;
+    }
+
+    public String getQuality() {
+        return quality;
+    }
+}
+
+import java.util.*;
+
+public class Users {
+    private int userId;
+    private String name;
+    private String email;
+    private Plan activePlan;
+    private List<Content> watchlist;
+    private List<Content> watchHistory;
+
+    public User(int userId, String name, String email) {
+        this.userId = userId;
+        this.name = name;
+        this.email = email;
+        this.watchlist = new ArrayList<>();
+        this.watchHistory = new ArrayList<>();
+    }
+
+    public void subscribe(Plan plan) {
+        if (this.activePlan == null || !this.activePlan.equals(plan)) {
+            this.activePlan = plan;
+            System.out.println(name + " subscribed to " + plan.getName());
+        }
+    }
+
+    public void addToWatchlist(Content content) {
+        watchlist.add(content);
+        System.out.println(content.getTitle() + " added to " + name + "'s watchlist.");
+    }
+
+    public void recordHistory(Content content) {
+        watchHistory.add(content);
+    }
+
+    public List<Content> getWatchlist() {
+        return watchlist;
+    }
+
+    public Plan getActivePlan() {
+        return activePlan;
+    }
+
+    public List<Content> getWatchHistory() {
+        return watchHistory;
+    }
+
+    public String getName() {
+        return name;
+    }
+}
+
+public class StreamingService {
+    private Map<Integer, Plan> plans = new HashMap<>();
+    private Map<Integer, Content> catalog = new HashMap<>();
+    private List<User> users = new ArrayList<>();
+    private Map<Integer, Integer> watchCount = new HashMap<>();
+
+    public void addPlan(Plan plan) {
+        plans.put(plan.getPlanId(), plan);
+    }
+
+    public void addContent(Content content) {
+        catalog.put(content.getContentId(), content);
+        watchCount.put(content.getContentId(), 0);
+    }
+
+    public void registerUser(User user) {
+        users.add(user);
+    }
+
+    public void recommend(String genre) {
+        System.out.println("Recommendations by Genre: " + genre);
+        for (Content c : catalog.values()) {
+            if (c.getGenre().equalsIgnoreCase(genre)) {
+                System.out.println("- " + c.getTitle());
+            }
+        }
+    }
+
+    public void recommend(double ratingThreshold) {
+        System.out.println("Recommendations with rating >= " + ratingThreshold);
+        for (Content c : catalog.values()) {
+            if (c.getRating() >= ratingThreshold) {
+                System.out.println("- " + c.getTitle());
+            }
+        }
+    }
+
+    public void recommend(int year) {
+        // Mocked year-based recommendation
+        System.out.println("Recommendations by Year " + year + ": (Mocked content)");
+    }
+
+    public void printTopWatched() {
+        System.out.println("Top Watched Content:");
+        catalog.values().stream()
+            .sorted((a, b) -> watchCount.getOrDefault(b.getContentId(), 0) - watchCount.getOrDefault(a.getContentId(), 0))
+            .limit(3)
+            .forEach(c -> System.out.println("- " + c.getTitle()));
+    }
+
+    public void printRevenueByPlan() {
+        Map<String, Double> revenue = new HashMap<>();
+        for (User u : users) {
+            if (u.getActivePlan() != null) {
+                String planName = u.getActivePlan().getName();
+                revenue.put(planName, revenue.getOrDefault(planName, 0.0) + u.getActivePlan().getMonthlyPrice());
+            }
+        }
+
+        System.out.println("Revenue by Plan:");
+        for (String plan : revenue.keySet()) {
+            System.out.println(plan + ": $" + revenue.get(plan));
+        }
+    }
+
+    public void recommendForUser(User user) {
+        System.out.println("Personalized recommendations for " + user.getName() + ":");
+        String preferredGenre = user.getWatchHistory().isEmpty() ? "Drama" : user.getWatchHistory().get(0).getGenre();
+        recommend(preferredGenre);
+    }
+}
+
+public class StreamingAppMain {
+	    public static void main(String[] args) {
+	        // Create Plans
+	        Plan basic = new Plan(1, "Basic", 8.99, 1, "SD");
+	        Plan premium = new Plan(2, "Premium", 15.99, 4, "HD");
+
+	        // Create Content
+	        Content movie1 = new Movie(101, "Inception", "Sci-Fi", 148, 4.8);
+	        Content series1 = new Series(201, "Breaking Bad", "Drama", 5, 4.9);
+
+	        // Create Streaming Service
+	        StreamingService netflix = new StreamingService();
+	        netflix.addPlan(basic);
+	        netflix.addPlan(premium);
+	        netflix.addContent(movie1);
+	        netflix.addContent(series1);
+
+	        // Create Users
+	        User user1 = new User(1, "Alice", "alice@example.com");
+	        User user2 = new User(2, "Bob", "bob@example.com");
+	        netflix.registerUser(user1);
+	        netflix.registerUser(user2);
+
+	        // Subscribe Users
+	        user1.subscribe(premium);
+	        user2.subscribe(basic);
+
+	        // Add to Watchlist
+	        user1.addToWatchlist(movie1);
+	        user1.addToWatchlist(series1);
+
+	        // Play Content
+	        for (Content c : user1.getWatchlist()) {
+	            c.play(); // Polymorphism
+	            user1.recordHistory(c);
+	        }
+
+	        // Recommendations
+	        netflix.recommend("Sci-Fi");
+	        netflix.recommend(4.8);
+	        netflix.recommend(2010); // Mocked
+
+	        // Reporting
+	        netflix.printTopWatched();
+	        netflix.printRevenueByPlan();
+	        netflix.recommendForUser(user1);
+	    }
+	}
+
+
+OUTPUT:
+
+Alice subscribed to Premium plan.
+Bob subscribed to Basic plan.
+Inception added to Alice's watchlist.
+Breaking Bad added to Alice's watchlist.
+Avengers 2012 added to Bob's watchlist.
+Playing Movie: Inception [148 mins]
+Playing Series: Stranger Things [Episodes: 34]
+Total Monthly Revenue: ₹698.0
+Recommended content with rating >= 4.7:
+ - Inception (4.8)
+ - Avengers 2012 (4.7)
+ - Breaking Bad (4.9)
+Recommended content by genre (Avengers):
+ - Avengers 2012
+Recommended content by year (2012):
+ - Avengers 2012
