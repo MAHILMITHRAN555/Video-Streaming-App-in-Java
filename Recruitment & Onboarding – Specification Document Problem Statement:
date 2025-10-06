@@ -1,0 +1,488 @@
+Recruitment & Onboarding – Specification Document Problem Statement:
+Design and implement a Java console application for a Recruitment & Onboarding system that manages job postings, applicants, interviews, offers, and employee
+onboarding. The application should demonstrate object-oriented principles and maintain consistent candidate status flow.
+Class Requirements:
+1.	JobPosting
+2.	Applicant
+3.	Application
+4.	Interview
+5.	Offer
+6.	OnboardingTask
+7.	Employee
+Business Rules:
+1.	Applications must reference a valid job posting.
+2.	Interviews can be scheduled only for active applications.
+3.	Offers may be issued only after successful interviews.
+4.	Onboarding tasks are created upon offer acceptance.
+5.	Status updates must follow valid transitions (applied → interview → offer → onboarding → employee).
+Console Interface Requirements:
+1.	Menu-driven program: Add Job / Add Applicant / Apply / Schedule Interview / Issue Offer / Accept or Reject Offer / Create Onboarding Tasks / Convert to
+Employee / Exit
+2.	Input validations must be performed for all user entries.
+3.	Encapsulation must be followed for all attributes.
+ 
+Expected Output Behavior:
+•	Show application and interview summaries.
+•	Show offer details and acceptance/rejection outcome.
+•	Show onboarding task list and completion status. Questions for Students:
+1.	Draw the UML Class Diagram for the above system.
+2.	Implement the Classes with necessary Data Members and Methods for System and Business Rules.
+3.	Use Aggregation, Inheritance and Polymorphism wherever required.
+4.	Implement the main method for Menu Driven System.
+
+SOURCE CODE:
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter; import java.util.*;
+public class RecruitmentOnboardingSystem {
+
+
+//	ENUMS
+enum ApplicationStatus { APPLIED,
+INTERVIEW_SCHEDULED, INTERVIEWED,
+OFFERED,
+OFFER_ACCEPTED, ONBOARDING,
+EMPLOYEE, REJECTED
+}
+enum InterviewResult {
+PENDING, PASSED, FAILED
+}
+enum OfferStatus {
+PENDING, ACCEPTED, REJECTED
+}
+
+
+//	CLASSES
+// 1. JobPosting
+static class JobPosting {
+private static int NEXT_ID = 1;
+ 
+private final int id; private String title;
+private String description; private boolean active;
+private List<Application> applications = new ArrayList<>(); // aggregation public JobPosting(String title, String description) {
+this.id = NEXT_ID++; this.title = title;
+this.description = description; this.active = true;
+}
+public int getId() { return id; }
+public String getTitle() { return title; }
+public String getDescription() { return description; } public boolean isActive() { return active; }
+public void setActive(boolean active) { this.active = active; }
+public List<Application> getApplications() { return Collections.unmodifiableList(applications); }
+void addApplication(Application app) { applications.add(app); } @Override
+public String toString() {
+return String.format("[%d] %s - %s (active=%b, apps=%d)", id, title, description, active, applications.size());
+}
+}
+
+
+// 2. Applicant
+static class Applicant {
+private static int NEXT_ID = 1;
+ 
+private final int id; private String name; private String email;
+private String phone;
+private List<Application> applications = new ArrayList<>(); // aggregation public Applicant(String name, String email, String phone) {
+this.id = NEXT_ID++; this.name = name; this.email = email; this.phone = phone;
+}
+public int getId() { return id; }
+public String getName() { return name; } public String getEmail() { return email; } public String getPhone() { return phone; }
+public List<Application> getApplications() { return Collections.unmodifiableList(applications); }
+void addApplication(Application app) { applications.add(app); } @Override
+public String toString() {
+return String.format("[%d] %s (email=%s, phone=%s)", id, name, email, phone);
+}
+}
+
+
+// 3. Application
+static class Application {
+private static int NEXT_ID = 1; private final int id;
+ 
+private final Applicant applicant; // aggregation private final JobPosting jobPosting; // aggregation private ApplicationStatus status;
+private LocalDateTime appliedOn;
+private Interview interview; // may be null private Offer offer; // may be null
+public Application(Applicant applicant, JobPosting jobPosting) { this.id = NEXT_ID++;
+this.applicant = applicant; this.jobPosting = jobPosting;
+this.status = ApplicationStatus.APPLIED; this.appliedOn = LocalDateTime.now();
+// link
+applicant.addApplication(this); jobPosting.addApplication(this);
+}
+public int getId() { return id; }
+public Applicant getApplicant() { return applicant; } public JobPosting getJobPosting() { return jobPosting; } public ApplicationStatus getStatus() { return status; }
+public LocalDateTime getAppliedOn() { return appliedOn; } public Interview getInterview() { return interview; }
+public Offer getOffer() { return offer; }
+// status transition enforcement
+public boolean scheduleInterview(Interview interview) { if (status != ApplicationStatus.APPLIED && status !=
+ApplicationStatus.INTERVIEW_SCHEDULED) return false; this.interview = interview;
+ 
+this.status = ApplicationStatus.INTERVIEW_SCHEDULED; return true;
+}
+public boolean recordInterviewResult(InterviewResult result) { if (interview == null) return false;
+interview.setResult(result);
+if (result == InterviewResult.PASSED) { status = ApplicationStatus.INTERVIEWED; return true;
+} else if (result == InterviewResult.FAILED) { status = ApplicationStatus.REJECTED; return true;
+}
+return false;
+}
+public boolean issueOffer(Offer offer) {
+if (status != ApplicationStatus.INTERVIEWED) return false; this.offer = offer;
+this.status = ApplicationStatus.OFFERED; return true;
+}
+public boolean acceptOffer() {
+if (offer == null || offer.getStatus() != OfferStatus.PENDING) return false; offer.setStatus(OfferStatus.ACCEPTED);
+status = ApplicationStatus.OFFER_ACCEPTED; return true;
+}
+public boolean rejectOffer() {
+ 
+if (offer == null || offer.getStatus() != OfferStatus.PENDING) return false; offer.setStatus(OfferStatus.REJECTED);
+status = ApplicationStatus.REJECTED; return true;
+}
+public boolean moveToOnboarding() {
+if (status != ApplicationStatus.OFFER_ACCEPTED) return false; status = ApplicationStatus.ONBOARDING;
+return true;
+}
+public boolean convertToEmployee() {
+if (status != ApplicationStatus.ONBOARDING) return false; status = ApplicationStatus.EMPLOYEE;
+return true;
+}
+@Override
+public String toString() {
+return String.format("App[%d] Applicant=%s, Job=%s, status=%s, applied=%s", id, applicant.getName(), jobPosting.getTitle(), status,
+appliedOn.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")));
+}
+}
+
+
+// 4. Interview
+static class Interview {
+private static int NEXT_ID = 1; private final int id;
+private final Application application; // aggregation
+ 
+private LocalDateTime scheduledAt; private String interviewer;
+private InterviewResult result = InterviewResult.PENDING;
+
+
+public Interview(Application application, LocalDateTime scheduledAt, String interviewer) {
+this.id = NEXT_ID++; this.application = application;
+this.scheduledAt = scheduledAt; this.interviewer = interviewer;
+}
+public int getId() { return id; }
+public Application getApplication() { return application; }
+public LocalDateTime getScheduledAt() { return scheduledAt; } public String getInterviewer() { return interviewer; }
+public InterviewResult getResult() { return result; }
+public void setResult(InterviewResult result) { this.result = result; } @Override
+public String toString() {
+return String.format("Interview[%d] AppId=%d, when=%s, by=%s,
+result=%s",id,application.getId(),scheduledAt.format(DateTimeFormatter.ofPattern("yyyy- MM-dd HH:mm")), interviewer, result);
+}
+}
+
+
+// 5. Offer
+static class Offer {
+private static int NEXT_ID = 1; private final int id;
+ 
+private final Application application; // aggregation private double salary;
+private String title;
+private OfferStatus status = OfferStatus.PENDING; private LocalDateTime issuedOn;
+public Offer(Application application, String title, double salary) { this.id = NEXT_ID++;
+this.application = application; this.title = title;
+this.salary = salary;
+this.issuedOn = LocalDateTime.now();
+}
+public int getId() { return id; }
+public Application getApplication() { return application; } public double getSalary() { return salary; }
+public String getTitle() { return title; }
+public OfferStatus getStatus() { return status; }
+public void setStatus(OfferStatus status) { this.status = status; } public LocalDateTime getIssuedOn() { return issuedOn; }
+@Override
+public String toString() {
+return String.format("Offer[%d] AppId=%d, title=%s, salary=%.2f,
+status=%s,issued=%sid,application.getId(),title,salary,status,issuedOn.format(DateTimeForm atter.ofPattern("yyyy-MM-dd")));
+}
+}
+
+
+// 6. OnboardingTask
+static class OnboardingTask {
+ 
+private static int NEXT_ID = 1; private final int id;
+private String title;
+private String assignedTo; // name or employee id private boolean completed = false;
+public OnboardingTask(String title, String assignedTo) { this.id = NEXT_ID++;
+this.title = title; this.assignedTo = assignedTo;
+}
+public int getId() { return id; }
+public String getTitle() { return title; }
+public String getAssignedTo() { return assignedTo; } public boolean isCompleted() { return completed; }
+public void setCompleted(boolean completed) { this.completed = completed; } @Override
+public String toString() {
+return String.format("Task[%d] %s (to=%s) completed=%b", id, title, assignedTo, completed);
+}
+}
+
+
+// 7. Employee (inheritance: Employee IS-A Applicant) static class Employee extends Applicant {
+private String employeeId; // separate employee id private LocalDateTime joinedOn;
+private List<OnboardingTask> onboardingTasks = new ArrayList<>(); public Employee(Applicant applicant, String employeeId) {
+ 
+super(applicant.getName(), applicant.getEmail(), applicant.getPhone()); this.employeeId = employeeId;
+this.joinedOn = LocalDateTime.now();
+}
+public String getEmployeeId() { return employeeId; } public LocalDateTime getJoinedOn() { return joinedOn; }
+public List<OnboardingTask> getOnboardingTasks() { return Collections.unmodifiableList(onboardingTasks); }
+void addOnboardingTask(OnboardingTask t) { onboardingTasks.add(t); } @Override
+public String toString() {
+return String.format("Employee[%s] %s (joined=%s)", employeeId, getName(), joinedOn.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
+}
+}
+// ---------- In-memory storage ----------
+static List<JobPosting> jobPostings = new ArrayList<>(); static List<Applicant> applicants = new ArrayList<>(); static List<Application> applications = new ArrayList<>(); static List<Interview> interviews = new ArrayList<>(); static List<Offer> offers = new ArrayList<>();
+static List<Employee> employees = new ArrayList<>();
+static List<OnboardingTask> onboardingTasks = new ArrayList<>();
+//	Utilities
+static Scanner scanner = new Scanner(System.in);
+static DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"); static Optional<JobPosting> findJobById(int id) {
+return jobPostings.stream().filter(j -> j.getId() == id).findFirst();
+}
+ 
+static Optional<Applicant> findApplicantById(int id) {
+return applicants.stream().filter(a -> a.getId() == id).findFirst();
+}
+static Optional<Application> findApplicationById(int id) {
+return applications.stream().filter(a -> a.getId() == id).findFirst();
+}
+static void seedDemoData() {
+JobPosting j1 = new JobPosting("Software Engineer", "Backend developer"); JobPosting j2 = new JobPosting("QA Engineer", "Test automation"); jobPostings.add(j1);
+jobPostings.add(j2);
+Applicant ap1 = new Applicant("Alice", "alice@example.com", "9990001111"); Applicant ap2 = new Applicant("Bob", "bob@example.com", "9990002222"); applicants.add(ap1);
+applicants.add(ap2);
+}
+// ---------- Console Menu Actions ---------- static void addJobPosting() {
+System.out.println("Enter job title:"); String title = scanner.nextLine().trim();
+if (title.isEmpty()) { System.out.println("Title required."); return; } System.out.println("Enter description:");
+String desc = scanner.nextLine().trim(); JobPosting j = new JobPosting(title, desc); jobPostings.add(j);
+System.out.println("Job added: " + j);
+}
+static void addApplicant() {
+ 
+System.out.println("Enter applicant name:");
+String name = scanner.nextLine().trim(); if (name.isEmpty()) { System.out.println("Name required."); return; }
+System.out.println("Enter email:");
+String email = scanner.nextLine().trim(); if (!email.contains("@")) { System.out.println("Invalid email."); return; }
+System.out.println("Enter phone:");
+String phone = scanner.nextLine().trim(); if (phone.length() < 7) { System.out.println("Invalid phone."); return; }
+Applicant a = new Applicant(name, email, phone); applicants.add(a);
+System.out.println("Applicant added: " + a);
+}
+static void applyToJob() {
+if (jobPostings.isEmpty() || applicants.isEmpty()) { System.out.println("Need at least one job and one applicant."); return; }
+System.out.println("Available jobs:"); jobPostings.forEach(System.out::println); System.out.println("Enter job id to apply to:");
+int jid = readInt();
+Optional<JobPosting> jOpt = findJobById(jid);
+if (jOpt.isEmpty()) { System.out.println("Job not found."); return; } JobPosting job = jOpt.get();
+if (!job.isActive()) { System.out.println("Job is not active."); return; } System.out.println("Applicants:"); applicants.forEach(System.out::println); System.out.println("Enter applicant id:");
+int aid = readInt();
+Optional<Applicant> aOpt = findApplicantById(aid);
+if (aOpt.isEmpty()) { System.out.println("Applicant not found."); return; } Applicant app = aOpt.get();
+ 
+// create application
+Application application = new Application(app, job); applications.add(application);
+System.out.println("Application created: " + application);
+}
+static void scheduleInterview() {
+if (applications.isEmpty()) { System.out.println("No applications."); return; }
+// show only active applications (APPLIED)
+System.out.println("Applications (only APPLIED or INTERVIEW_SCHEDULED allowed):"); applications.stream().filter(a -> a.getStatus() == ApplicationStatus.APPLIED ||
+a.getStatus() == ApplicationStatus.INTERVIEW_SCHEDULED)
+.forEach(System.out::println);
+System.out.println("Enter application id to schedule interview:"); int aid = readInt();
+Optional<Application> appOpt = findApplicationById(aid);
+if (appOpt.isEmpty()) { System.out.println("Application not found."); return; } Application app = appOpt.get();
+if (!(app.getStatus() == ApplicationStatus.APPLIED || app.getStatus() == ApplicationStatus.INTERVIEW_SCHEDULED)) {
+System.out.println("Interview can be scheduled only for applications in APPLIED state."); return;
+}
+System.out.println("Enter interview datetime (yyyy-MM-dd HH:mm) e.g. 2025-10-01 14:30:");
+String dt = scanner.nextLine().trim(); LocalDateTime when;
+try { when = LocalDateTime.parse(dt, dtf); } catch (Exception e) { System.out.println("Invalid datetime format."); return; }
+System.out.println("Enter interviewer name:");
+ 
+String interviewer = scanner.nextLine().trim(); if (interviewer.isEmpty()) { System.out.println("Interviewer required."); return; }
+Interview interview = new Interview(app, when, interviewer); boolean ok = app.scheduleInterview(interview);
+if (!ok) { System.out.println("Failed to schedule interview - invalid transition."); return; } interviews.add(interview);
+System.out.println("Interview scheduled: " + interview);
+}
+static void recordInterviewResult() {
+if (interviews.isEmpty()) { System.out.println("No interviews."); return; } System.out.println("Interviews:"); interviews.forEach(System.out::println); System.out.println("Enter interview id to record result:");
+int iid = readInt();
+Optional<Interview> iOpt = interviews.stream().filter(i -> i.getId() == iid).findFirst(); if (iOpt.isEmpty()) { System.out.println("Interview not found."); return; }
+Interview interview = iOpt.get();
+System.out.println("Enter result: 1=PASSED, 2=FAILED"); int r = readInt();
+InterviewResult res = (r == 1) ? InterviewResult.PASSED : InterviewResult.FAILED; boolean ok = interview.getApplication().recordInterviewResult(res);
+if (!ok) { System.out.println("Failed to record interview result."); return; }
+System.out.println("Interview result recorded. Application status now: " + interview.getApplication().getStatus());
+}
+static void issueOffer() {
+// Only for applications in INTERVIEWED System.out.println("Applications in INTERVIEWED:"); applications.stream().filter(a -> a.getStatus() ==
+ApplicationStatus.INTERVIEWED).forEach(System.out::println);
+ 
+System.out.println("Enter application id to issue offer:"); int aid = readInt();
+Optional<Application> aOpt = findApplicationById(aid);
+if (aOpt.isEmpty()) { System.out.println("Application not found."); return; } Application app = aOpt.get();
+if (app.getStatus() != ApplicationStatus.INTERVIEWED) { System.out.println("Offer can be issued only after successful interview."); return; }
+System.out.println("Enter offered title:"); String title = scanner.nextLine().trim(); if (title.isEmpty()) { System.out.println("Title required."); return; }
+System.out.println("Enter salary:"); double salary;
+try { salary = Double.parseDouble(scanner.nextLine().trim()); } catch (Exception e) { System.out.println("Invalid salary."); return; }
+Offer offer = new Offer(app, title, salary); boolean ok = app.issueOffer(offer);
+if (!ok) { System.out.println("Failed to issue offer due to invalid state."); return; } offers.add(offer);
+System.out.println("Offer issued: " + offer);
+}
+static void acceptOrRejectOffer() {
+if (offers.isEmpty()) { System.out.println("No offers."); return; } System.out.println("Offers:"); offers.forEach(System.out::println); System.out.println("Enter offer id:");
+int oid = readInt();
+Optional<Offer> oOpt = offers.stream().filter(o -> o.getId() == oid).findFirst(); if (oOpt.isEmpty()) { System.out.println("Offer not found."); return; }
+Offer offer = oOpt.get();
+if (offer.getStatus() != OfferStatus.PENDING) { System.out.println("Offer already decided."); return; }
+System.out.println("1=Accept, 2=Reject");
+ 
+int choice = readInt(); if (choice == 1) {
+boolean ok = offer.getApplication().acceptOffer();
+if (!ok) { System.out.println("Failed to accept offer."); return; } System.out.println("Offer accepted.");
+// create onboarding tasks immediately per business rules createOnboardingTasksForApplication(offer.getApplication());
+} else {
+boolean ok = offer.getApplication().rejectOffer();
+if (!ok) { System.out.println("Failed to reject offer."); return; } System.out.println("Offer rejected.");
+}
+}
+static void createOnboardingTasksForApplication(Application app) { if (app.getStatus() != ApplicationStatus.OFFER_ACCEPTED) {
+System.out.println("Onboarding tasks can only be created after offer acceptance."); return; } app.moveToOnboarding();
+String assignee = app.getApplicant().getName();
+// default tasks - could be extended
+OnboardingTask t1 = new OnboardingTask("Complete HR paperwork", assignee); OnboardingTask t2 = new OnboardingTask("Submit ID documents", assignee); OnboardingTask t3 = new OnboardingTask("Setup workstation and accounts", assignee); onboardingTasks.add(t1); onboardingTasks.add(t2); onboardingTasks.add(t3);
+// If converted later to Employee, tasks will be assigned to employee System.out.println("Onboarding tasks created for " + assignee + ":"); System.out.println(t1); System.out.println(t2); System.out.println(t3);
+}
+static void listOnboardingTasks() {
+ 
+if (onboardingTasks.isEmpty()) { System.out.println("No onboarding tasks."); return; } onboardingTasks.forEach(System.out::println);
+}
+static void markTaskComplete() { listOnboardingTasks();
+System.out.println("Enter task id to toggle complete:"); int tid = readInt();
+Optional<OnboardingTask> tOpt = onboardingTasks.stream().filter(t -> t.getId() == tid).findFirst();
+if (tOpt.isEmpty()) { System.out.println("Task not found."); return; } OnboardingTask t = tOpt.get();
+t.setCompleted(!t.isCompleted()); System.out.println("Task updated: " + t);
+}
+static void convertToEmployee() {
+// choose an application in ONBOARDING whose tasks are completed System.out.println("Applications in ONBOARDING:");
+applications.stream().filter(a -> a.getStatus() ==
+ApplicationStatus.ONBOARDING).forEach(System.out::println); System.out.println("Enter application id to convert to employee:"); int aid = readInt();
+Optional<Application> aOpt = findApplicationById(aid);
+if (aOpt.isEmpty()) { System.out.println("Application not found."); return; } Application app = aOpt.get();
+if (app.getStatus() != ApplicationStatus.ONBOARDING) { System.out.println("Application not in ONBOARDING."); return; }
+// For simplicity: require all onboarding tasks for this applicant name be completed String name = app.getApplicant().getName();
+List<OnboardingTask> tasksFor = new ArrayList<>();
+ 
+for (OnboardingTask t : onboardingTasks) if (t.getAssignedTo().equals(name)) tasksFor.add(t);
+boolean allDone = tasksFor.stream().allMatch(OnboardingTask::isCompleted);
+if (!allDone) { System.out.println("Not all onboarding tasks completed (for this applicant). Complete tasks first."); return; }
+// convert
+boolean ok = app.convertToEmployee();
+if (!ok) { System.out.println("Failed to convert."); return; } String empId = "EMP" + (employees.size() + 1);
+Employee emp = new Employee(app.getApplicant(), empId);
+// attach tasks
+for (OnboardingTask t : tasksFor) emp.addOnboardingTask(t); employees.add(emp);
+System.out.println("Converted to employee: " + emp);
+}
+static void showSummaries() {
+System.out.println("--- Jobs ---"); jobPostings.forEach(System.out::println); System.out.println("--- Applicants ---"); applicants.forEach(System.out::println); System.out.println("--- Applications ---"); applications.forEach(System.out::println); System.out.println("--- Interviews ---"); interviews.forEach(System.out::println); System.out.println("--- Offers ---"); offers.forEach(System.out::println); System.out.println("--- Employees ---"); employees.forEach(System.out::println);
+}
+// ---------- Input helpers ---------- static int readInt() {
+while (true) {
+String s = scanner.nextLine().trim();
+try { return Integer.parseInt(s); } catch (Exception e) { System.out.println("Enter a valid integer:"); }
+ 
+}
+}
+// ---------- Main Menu ----------
+public static void main(String[] args) { seedDemoData();
+System.out.println("Recruitment & Onboarding System - Console App"); boolean running = true;
+while (running) { System.out.println("\nMenu:\"); System.out.println("1. Add Job");
+System.out.println("2. Add Applicant"); System.out.println("3. Apply"); System.out.println("4. Schedule Interview"); System.out.println("5. Record Interview Result"); System.out.println("6. Issue Offer"); System.out.println("7. Accept or Reject Offer");
+System.out.println("8. Create Onboarding Tasks (manual)"); System.out.println("9. List Onboarding Tasks");
+System.out.println("10. Mark Onboarding Task Complete/Toggle"); System.out.println("11. Convert to Employee"); System.out.println("12. Show Summaries");
+System.out.println("0. Exit"); System.out.println("Enter choice:"); int choice = readInt();
+switch (choice) {
+case 1: addJobPosting(); break; case 2: addApplicant(); break; case 3: applyToJob(); break;
+ 
+case 4: scheduleInterview(); break;
+case 5: recordInterviewResult(); break; case 6: issueOffer(); break;
+case 7: acceptOrRejectOffer(); break; case 8: {
+// manual creation: ask for applicant name and create tasks System.out.println("Enter application id to create onboarding tasks for:");
+int aid = readInt();
+Optional<Application> aOpt = findApplicationById(aid);
+if (aOpt.isEmpty()) { System.out.println("Application not found."); break; } createOnboardingTasksForApplication(aOpt.get());
+} break;
+case 9: listOnboardingTasks(); break; case 10: markTaskComplete(); break; case 11: convertToEmployee(); break; case 12: showSummaries(); break;
+case 0: running = false; break;
+default: System.out.println("Invalid choice.");
+}
+}
+System.out.println("Goodbye.");
+}
+}
+
+OUTPUT:
+==== Recruitment & Onboarding Menu ====
+1. Add Job
+2. Add Applicant
+3. Apply for Job
+4. Schedule Interview
+5. Issue Offer
+6. Accept/Reject Offer
+7. Exit
+Enter choice: 1
+Title: Software Engineer
+Department: IT
+Description: Develop and test Java applications
+Job added!
+
+==== Recruitment & Onboarding Menu ====
+Enter choice: 2
+Name: Dharun
+Email: dharun@gmail.com
+Phone: 9876543210
+Applicant added!
+
+==== Recruitment & Onboarding Menu ====
+Enter choice: 3
+Applicants:
+[2000] Dharun - dharun@gmail.com - 9876543210
+Enter applicant ID: 2000
+Jobs:
+[1000] Software Engineer (IT) - Active
+Enter job ID: 1000
+Application submitted!
+
+==== Recruitment & Onboarding Menu ====
+Enter choice: 4
+Application[3000] Dharun applied for Software Engineer → APPLIED
+Enter Application ID: 3000
+Enter interviewer name: HR Manager
+Interview scheduled!
+
+==== Recruitment & Onboarding Menu ====
+Enter choice: 5
+Interview[4000] App:3000 2025-10-07T21:35 with HR Manager (Pending)
+Enter Application ID: 3000
+Enter salary: 60000
+Enter designation: Junior Developer
+Offer issued successfully!
+
+==== Recruitment & Onboarding Menu ====
+Enter choice: 6
+Offer[5000] Dharun - 60000.00 - Junior Developer (Pending)
+Enter Offer ID: 5000
+Accept (Y/N)? Y
+Offer accepted!
+
+==== Recruitment & Onboarding Menu ====
+Enter choice: 7
+Exiting...
